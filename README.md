@@ -196,7 +196,7 @@ In order to run our tests, we have provided a simple Makefile. In order to run t
 
 ### Assignment submission
 
-Submission link will be created on CCLE, where you can submit your code by the due date.
+Submission is done through GitHub. Please indicate via the commit log record that version you would like us to grade. If no such commit log exists, then we will grade the last committed version prior to the deadline. Also, please commit a file called project-team.txt, which contains the names and UIDs of the team members; recall this assignment is done in teams of two. 
 
 ### Acknowledgements
 Big thanks to Matteo Interlandi.
