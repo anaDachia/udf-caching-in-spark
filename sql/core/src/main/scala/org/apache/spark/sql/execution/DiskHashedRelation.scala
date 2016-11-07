@@ -162,8 +162,8 @@ private[sql] class DiskPartition (
         // IMPLEMENT ME
         if (chunkSizeIterator.hasNext){
           val size = chunkSizeIterator.next()
-          if (size > 0){
-            byteArray = CS143Utils.getNextChunkBytes(inStream, size,byteArray)
+          if (size > 0) {
+            byteArray = CS143Utils.getNextChunkBytes(inStream, size, byteArray)
             currentIterator = CS143Utils.getListFromBytes(byteArray).iterator.asScala
             true
           }
