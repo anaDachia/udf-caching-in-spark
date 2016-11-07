@@ -126,10 +126,11 @@ object CS143Utils {
     */
   def getUdfFromExpressions(expressions: Seq[Expression]): ScalaUdf = {
     // IMPLEMENT ME
-    // TODO check if we are returning only last udf
     var udf: ScalaUdf = null
     expressions.foreach { (expression: Expression) => {
-      if (expression.isInstanceOf[ScalaUdf]) udf = expression.asInstanceOf[ScalaUdf]
+      if (expression.isInstanceOf[ScalaUdf]){
+        udf = expression.asInstanceOf[ScalaUdf]
+      }
     }
     }
     udf
@@ -152,7 +153,7 @@ object CS143Utils {
                                expressions: Seq[Expression],
                                inputSchema: Seq[Attribute]): (Iterator[Row] => Iterator[Row]) = {
     // Get the UDF from the expressions.
-    val udf: ScalaUdf = CS143Utils.getUdfFromExpressions(expressions) // TODO check
+    val udf: ScalaUdf = CS143Utils.getUdfFromExpressions(expressions)
 
     udf match {
       /* If there is no UDF, then do a regular projection
@@ -226,15 +227,16 @@ object CachingIteratorGenerator {
           // IMPLEMENT ME
           val inp_row = input.next()
           var key = cacheKeyProjection(inp_row)
-          var res: Row = cache.get(key)
-          if(res == null){
-            val curr_pre_projection = preUdfProjection(inp_row)
-            val curr_udf_projection = udfProject(inp_row)
-            val curr_post_projection = postUdfProjection(inp_row)
-            var final_list = curr_pre_projection ++ curr_udf_projection ++ curr_post_projection
-            res = Row.fromSeq(final_list)
-            cache.put(key,res)
+          var udf_project = cache.get(key)
+          if(udf_project == null){
+            udf_project = udfProject(inp_row)
+            cache.put(key,udf_project)
           }
+          val curr_pre_projection = preUdfProjection(inp_row)
+          // val curr_udf_projection = udfProject(inp_row)
+          val curr_post_projection = postUdfProjection(inp_row)
+          var final_list = curr_pre_projection ++ udf_project ++ curr_post_projection
+          var res = Row.fromSeq(final_list)
           res
         }
       }

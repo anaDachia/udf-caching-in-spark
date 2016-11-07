@@ -84,15 +84,12 @@ private[sql] class DiskPartition (
     if (inputClosed == true) {
       throw new SparkException("cannot write in a closed partition")
     }
-    // TODO if disk full
     else {
       data.add(row)
       val partition_size = measurePartitionSize()
       if (partition_size >= blockSize){
         spillPartitionToDisk()
-        // TODO figure out what to do
-        // data.clear()
-        // closeInput()
+        data.clear()
       }
     }
   }
@@ -139,6 +136,9 @@ private[sql] class DiskPartition (
 
       override def next() = {
         // IMPLEMENT ME
+        if (!currentIterator.hasNext){
+
+        }
         currentIterator.next()
       }
 
@@ -184,7 +184,7 @@ private[sql] class DiskPartition (
     // IMPLEMENT ME
     inputClosed = true
     // iterate to spill to file
-    if(data.isEmpty == false){ // //////////TO BE CHECKED //////////////
+    if(data.isEmpty == false){
       spillPartitionToDisk()
       data.clear()
     }
@@ -226,12 +226,12 @@ private[sql] object DiskHashedRelation {
              blockSize: Int = 64000) = {
     // IMPLEMENT ME
     var partition_list: Array[DiskPartition] = new Array[DiskPartition](size)
-    for (a <- 0 until (size )) {
+    for (a <- 0 until (size)) {
       partition_list(a) = new DiskPartition("" + a, blockSize)
     }
     for (rowi <- input) {
-      var key = keyGenerator(rowi) // hash has hashcode func! partition row --> hash % size
-      var ind = key.hashCode() % size // CHECK !!!
+      var key = keyGenerator(rowi)
+      var ind = key.hashCode() % size
       var target_partition = partition_list(ind)
       target_partition.insert(rowi) // TODO make sure what happens in marginal cases
     }
