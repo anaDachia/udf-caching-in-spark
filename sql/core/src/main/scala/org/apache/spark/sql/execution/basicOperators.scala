@@ -19,8 +19,7 @@ package org.apache.spark.sql.execution
 
 
 import scala.collection.mutable.ArrayBuffer
-
-import org.apache.spark.{SparkEnv, HashPartitioner, SparkConf}
+import org.apache.spark.{HashPartitioner, SparkConf, SparkEnv}
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.rdd.{RDD, ShuffledRDD}
 import org.apache.spark.shuffle.sort.SortShuffleManager
@@ -32,8 +31,8 @@ import org.apache.spark.util.MutablePair
 import org.apache.spark.util.collection.ExternalSorter
 
 /**
- * :: DeveloperApi ::
- */
+  * :: DeveloperApi ::
+  */
 @DeveloperApi
 case class Project(projectList: Seq[NamedExpression], child: SparkPlan) extends UnaryNode {
   override def output = projectList.map(_.toAttribute)
@@ -47,15 +46,15 @@ case class Project(projectList: Seq[NamedExpression], child: SparkPlan) extends 
 }
 
 /**
- * A projection operator that is tailored to improve performance of UDF execution using
- * in-memory memoization.
- *
- * NOTE: This assumes that we are only caching for a single UDF. If there are multiple
- * UDFs, it will only cache for the last UDF. All other UDFs will be executed regularly.
- *
- * Once you have completed implementing the functions in [[CS143Utils]], this operator
- * should work.
- */
+  * A projection operator that is tailored to improve performance of UDF execution using
+  * in-memory memoization.
+  *
+  * NOTE: This assumes that we are only caching for a single UDF. If there are multiple
+  * UDFs, it will only cache for the last UDF. All other UDFs will be executed regularly.
+  *
+  * Once you have completed implementing the functions in [[CS143Utils]], this operator
+  * should work.
+  */
 @DeveloperApi
 case class CacheProject(projectList: Seq[Expression], child: SparkPlan) extends UnaryNode {
   override def output = child.output
@@ -65,19 +64,20 @@ case class CacheProject(projectList: Seq[Expression], child: SparkPlan) extends 
        You have to implement parts of the stack to make this work. */
     val generator: (Iterator[Row] => Iterator[Row]) = CS143Utils.generateCachingIterator(projectList, child.output)
 
-    /* This is Spark magic. In short, it applies the generator function to each of the slices of an RDD.
+    /* This is Spark magic. In short,
+    it applies the generator function to each of the slices of an RDD.
        For the purposes of CS 143, we will only ever have one slice. */
     child.execute().mapPartitions(generator)
   }
 }
 
 /**
- * A projection operator that is tailor to improve performance of UDF execution by using
- * external hashing.
- *
- * @param projectList
- * @param child
- */
+  * A projection operator that is tailor to improve performance of UDF execution by using
+  * external hashing.
+  *
+  * @param projectList
+  * @param child
+  */
 @DeveloperApi
 case class PartitionProject(projectList: Seq[Expression], child: SparkPlan) extends UnaryNode {
   override def output = child.output
@@ -87,39 +87,60 @@ case class PartitionProject(projectList: Seq[Expression], child: SparkPlan) exte
   }
 
   /**
-   * This method takes an iterator as an input. It should first partition the whole input to disk.
-   * It should then read each partition from disk and construct do in-memory memoization over each
-   * partition to avoid recomputation of UDFs.
-   *
-   * @param input the input iterator
-   * @return the result of applying the projection
-   */
+    * This method takes an iterator as an input. It should first partition the whole input to disk.
+    * It should then read each partition from disk and construct do in-memory memoization over each
+    * partition to avoid recomputation of UDFs.
+    *
+    * @param input the input iterator
+    * @return the result of applying the projection
+    */
   def generateIterator(input: Iterator[Row]): Iterator[Row] = {
     // This is the key generator for the course-grained external hashing.
     val keyGenerator = CS143Utils.getNewProjection(projectList, child.output)
 
     // IMPLEMENT ME
+    val hashedRelation: DiskHashedRelation = DiskHashedRelation(input, keyGenerator,4,64000)
+    val partition_list: Iterator[DiskPartition] = hashedRelation.getIterator()
+
+    // var diskPartition:DiskPartition = null
+    var mainIterator: Iterator[Row] =null
 
     new Iterator[Row] {
+      // IMPLEMENT ME
       def hasNext() = {
-        // IMPLEMENT ME
-        false
+        var has_next = false
+        if(mainIterator != null && mainIterator.hasNext){
+          has_next = true
+        }else {
+          has_next = fetchNextPartition
+        }
+        hasNext
       }
 
       def next() = {
         // IMPLEMENT ME
-        null
+        // null
+        mainIterator.next()
       }
-
       /**
-       * This fetches the next partition over which we will iterate or returns false if there are no more partitions
-       * over which we can iterate.
-       *
-       * @return
-       */
+        * This fetches the next partition over which we will iterate or returns false if there are no more partitions
+        * over which we can iterate.
+        *
+        * @return
+        */
       private def fetchNextPartition(): Boolean  = {
         // IMPLEMENT ME
-        false
+        // false
+        var has_next = false
+        if(partition_list.hasNext) {
+          var curr_partition = partition_list.next()
+          val data: Iterator[Row] = curr_partition.getData()
+          if (data.hasNext) {
+            mainIterator = CS143Utils.generateCachingIterator(projectList, child.output) (data)
+            has_next = true
+          }
+        }
+        has_next
       }
     }
   }
@@ -127,8 +148,8 @@ case class PartitionProject(projectList: Seq[Expression], child: SparkPlan) exte
 }
 
 /**
- * :: DeveloperApi ::
- */
+  * :: DeveloperApi ::
+  */
 @DeveloperApi
 case class Filter(condition: Expression, child: SparkPlan) extends UnaryNode {
   override def output = child.output
@@ -141,8 +162,8 @@ case class Filter(condition: Expression, child: SparkPlan) extends UnaryNode {
 }
 
 /**
- * :: DeveloperApi ::
- */
+  * :: DeveloperApi ::
+  */
 @DeveloperApi
 case class Sample(fraction: Double, withReplacement: Boolean, seed: Long, child: SparkPlan)
   extends UnaryNode
@@ -154,8 +175,8 @@ case class Sample(fraction: Double, withReplacement: Boolean, seed: Long, child:
 }
 
 /**
- * :: DeveloperApi ::
- */
+  * :: DeveloperApi ::
+  */
 @DeveloperApi
 case class Union(children: Seq[SparkPlan]) extends SparkPlan {
   // TODO: attributes output by union should be distinct for nullability purposes
@@ -164,13 +185,13 @@ case class Union(children: Seq[SparkPlan]) extends SparkPlan {
 }
 
 /**
- * :: DeveloperApi ::
- * Take the first limit elements. Note that the implementation is different depending on whether
- * this is a terminal operator or not. If it is terminal and is invoked using executeCollect,
- * this operator uses something similar to Spark's take method on the Spark driver. If it is not
- * terminal or is invoked using execute, we first take the limit on each partition, and then
- * repartition all the data to a single partition to compute the global limit.
- */
+  * :: DeveloperApi ::
+  * Take the first limit elements. Note that the implementation is different depending on whether
+  * this is a terminal operator or not. If it is terminal and is invoked using executeCollect,
+  * this operator uses something similar to Spark's take method on the Spark driver. If it is not
+  * terminal or is invoked using execute, we first take the limit on each partition, and then
+  * repartition all the data to a single partition to compute the global limit.
+  */
 @DeveloperApi
 case class Limit(limit: Int, child: SparkPlan)
   extends UnaryNode {
@@ -184,10 +205,10 @@ case class Limit(limit: Int, child: SparkPlan)
   override def outputPartitioning = SinglePartition
 
   /**
-   * A custom implementation modeled after the take function on RDDs but which never runs any job
-   * locally.  This is to avoid shipping an entire partition of data in order to retrieve only a few
-   * rows.
-   */
+    * A custom implementation modeled after the take function on RDDs but which never runs any job
+    * locally.  This is to avoid shipping an entire partition of data in order to retrieve only a few
+    * rows.
+    */
   override def executeCollect(): Array[Row] = {
     if (limit == 0) {
       return new Array[Row](0)
@@ -246,11 +267,11 @@ case class Limit(limit: Int, child: SparkPlan)
 }
 
 /**
- * :: DeveloperApi ::
- * Take the first limit elements as defined by the sortOrder. This is logically equivalent to
- * having a [[Limit]] operator after a [[Sort]] operator. This could have been named TopK, but
- * Spark's top operator does the opposite in ordering so we name it TakeOrdered to avoid confusion.
- */
+  * :: DeveloperApi ::
+  * Take the first limit elements as defined by the sortOrder. This is logically equivalent to
+  * having a [[Limit]] operator after a [[Sort]] operator. This could have been named TopK, but
+  * Spark's top operator does the opposite in ordering so we name it TakeOrdered to avoid confusion.
+  */
 @DeveloperApi
 case class TakeOrdered(limit: Int, sortOrder: Seq[SortOrder], child: SparkPlan) extends UnaryNode {
 
@@ -269,16 +290,16 @@ case class TakeOrdered(limit: Int, sortOrder: Seq[SortOrder], child: SparkPlan) 
 }
 
 /**
- * :: DeveloperApi ::
- * Performs a sort on-heap.
- * @param global when true performs a global sort of all partitions by shuffling the data first
- *               if necessary.
- */
+  * :: DeveloperApi ::
+  * Performs a sort on-heap.
+  * @param global when true performs a global sort of all partitions by shuffling the data first
+  *               if necessary.
+  */
 @DeveloperApi
 case class Sort(
-    sortOrder: Seq[SortOrder],
-    global: Boolean,
-    child: SparkPlan)
+                 sortOrder: Seq[SortOrder],
+                 global: Boolean,
+                 child: SparkPlan)
   extends UnaryNode {
   override def requiredChildDistribution =
     if (global) OrderedDistribution(sortOrder) :: Nil else UnspecifiedDistribution :: Nil
@@ -294,16 +315,16 @@ case class Sort(
 }
 
 /**
- * :: DeveloperApi ::
- * Performs a sort, spilling to disk as needed.
- * @param global when true performs a global sort of all partitions by shuffling the data first
- *               if necessary.
- */
+  * :: DeveloperApi ::
+  * Performs a sort, spilling to disk as needed.
+  * @param global when true performs a global sort of all partitions by shuffling the data first
+  *               if necessary.
+  */
 @DeveloperApi
 case class ExternalSort(
-    sortOrder: Seq[SortOrder],
-    global: Boolean,
-    child: SparkPlan)
+                         sortOrder: Seq[SortOrder],
+                         global: Boolean,
+                         child: SparkPlan)
   extends UnaryNode {
   override def requiredChildDistribution =
     if (global) OrderedDistribution(sortOrder) :: Nil else UnspecifiedDistribution :: Nil
@@ -321,12 +342,12 @@ case class ExternalSort(
 }
 
 /**
- * :: DeveloperApi ::
- * Computes the set of distinct input rows using a HashSet.
- * @param partial when true the distinct operation is performed partially, per partition, without
- *                shuffling the data.
- * @param child the input query plan.
- */
+  * :: DeveloperApi ::
+  * Computes the set of distinct input rows using a HashSet.
+  * @param partial when true the distinct operation is performed partially, per partition, without
+  *                shuffling the data.
+  * @param child the input query plan.
+  */
 @DeveloperApi
 case class Distinct(partial: Boolean, child: SparkPlan) extends UnaryNode {
   override def output = child.output
@@ -353,10 +374,10 @@ case class Distinct(partial: Boolean, child: SparkPlan) extends UnaryNode {
 
 
 /**
- * :: DeveloperApi ::
- * Returns a table with the elements from left that are not in right using
- * the built-in spark subtract function.
- */
+  * :: DeveloperApi ::
+  * Returns a table with the elements from left that are not in right using
+  * the built-in spark subtract function.
+  */
 @DeveloperApi
 case class Except(left: SparkPlan, right: SparkPlan) extends BinaryNode {
   override def output = left.output
@@ -367,10 +388,10 @@ case class Except(left: SparkPlan, right: SparkPlan) extends BinaryNode {
 }
 
 /**
- * :: DeveloperApi ::
- * Returns the rows in left that also appear in right using the built in spark
- * intersection function.
- */
+  * :: DeveloperApi ::
+  * Returns the rows in left that also appear in right using the built in spark
+  * intersection function.
+  */
 @DeveloperApi
 case class Intersect(left: SparkPlan, right: SparkPlan) extends BinaryNode {
   override def output = children.head.output
@@ -381,11 +402,11 @@ case class Intersect(left: SparkPlan, right: SparkPlan) extends BinaryNode {
 }
 
 /**
- * :: DeveloperApi ::
- * A plan node that does nothing but lie about the output of its child.  Used to spice a
- * (hopefully structurally equivalent) tree from a different optimization sequence into an already
- * resolved tree.
- */
+  * :: DeveloperApi ::
+  * A plan node that does nothing but lie about the output of its child.  Used to spice a
+  * (hopefully structurally equivalent) tree from a different optimization sequence into an already
+  * resolved tree.
+  */
 @DeveloperApi
 case class OutputFaker(output: Seq[Attribute], child: SparkPlan) extends SparkPlan {
   def children = child :: Nil
