@@ -165,8 +165,8 @@ private[sql] class DiskPartition (
           if (size > 0){
             byteArray = CS143Utils.getNextChunkBytes(inStream, size,byteArray)
             currentIterator = CS143Utils.getListFromBytes(byteArray).iterator.asScala
+            true
           }
-          return true
         }
         false
       }
